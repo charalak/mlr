@@ -1,0 +1,146 @@
+---
+title: "Report on Machine Learning assignment"
+author: "Charalambos Kanella"
+date: "25 Apr 2015"
+output: html_document
+---
+
+## Load and check data
+
+At the very first step we load the data and quickly scan the train data to see if there are any missing and NAN values.
+
+We load data
+
+```{r}
+library(caret)
+#load raw data
+traindat <- read.csv("pml-training.csv", header = TRUE)
+testdat  <- read.csv('pml-testing.csv')
+```
+## Process the data
+
+At this step and after we identify that we need to 'clean' the data, we preocess them.
+```{r}
+##is.na(traindat)
+```
+
+We use the caret pakage:
+
+```{r}
+library(caret)
+```
+And now we split our data into training and validation data.
+60 % traing and 40% testing
+```{r}
+set.seed(126)
+traindata   <- createDataPartition(traindat$classe, p = 0.6, list = FALSE)
+Training    <- traindat[traindata, ]
+Validating  <- traindat[-traindata, ]
+```
+
+The next thing is to clean our data from zero values, nan and empty and also collumns that only describe the data. This way we choose only collumns that do not include these bad characteristics.
+
+```{r}
+# the zero ones
+which_null <- nearZeroVar(Training)
+Training <- Training[, -which_null]
+```
+
+```{r}
+# meausre the length of collumns that contain missing
+measure_null <- sapply(Training, function(x) {
+    sum(!(is.na(x) | x == ""))
+})
+# the columns that their values consist of more than 50% of the collumn length must be exluded
+what_null <- names(measure_null[measure_null < 0.5 * length(Training$classe)])
+
+# cullumns that describe the data must be exluded also
+which_describe <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+    "cvtd_timestamp", "new_window", "num_window")
+excludedall <- c(which_describe, what_null)
+Training <- Training[, !names(Training) %in% excludedall]
+```
+
+## Modeling with: a) Random Forest - rf, b) boosted trees-gbm, and c) discriminant analysis - lda
+
+```{r}
+# RANDOM FOREST
+library(randomForest)
+randomforest <- randomForest(classe ~ ., data = Training, importance = TRUE, ntrees = 15)
+# or randomforest <- train(classe ~ ., method="rf",data= Training)
+
+# BOOSTED TREES
+#boostedtrees <- train(classe ~ ., method="gbm",data= Training)
+
+# DISCRIMINANT ANALYSIS
+#discriana <- train(classe ~ ., method="lda",data= Training)
+```
+
+## Prediction
+# Training dataset - RANDOM FOREST
+```{r}
+predictionT <- predict(randomforest,Training)
+print(confusionMatrix(predictionT, Training$classe))
+```
+
+# Validation dataset - RANDOM FOREST
+
+```{r}
+predictionV <- predict(randomforest,Validating)
+print(confusionMatrix(predictionV, Validating$classe))
+```
+
+# Training dataset - BOOSTED TREES
+```{r}
+#predictionTbt <- predict(boostedtrees,Training)
+#print(confusionMatrix(predictionTbt, Training$classe))
+```
+
+# Validation dataset - BOOSTED TREES
+
+```{r}
+#predictionVbt <- predict(boostedtrees,Validating)
+#print(confusionMatrix(predictionVbt, Validating$classe))
+```
+
+# Training dataset - DISCRIMINANT ANALYSIS
+```{r}
+#predictionTda <- predict(discriana,Training)
+#print(confusionMatrix(predictionTda, Training$classe))
+```
+
+# Validation dataset - DISCRIMINANT ANALYSIS
+
+```{r}
+#predictionVda <- predict(discriana,Validating)
+#print(confusionMatrix(predictionVda, Validating$classe))
+```
+
+The accuracy of the three methods shows that the RANDOM FOREST model is the best one. Therefore, using this model on the test dataset we have:
+
+# The test dataset 
+
+```{r}
+predictTest <- predict(randomforest, testdat)
+predictTest
+```
+
+
+## CROSS VALIDATION
+The cross validation will be used to reduce the chance of errors and over-fitting
+
+```{r}
+#set.seed(2345)
+#trcontrol <- trainControl(method="repeatedcv", number=10,repeats=10)
+#cvmodel <- train(classe ~ ., method="rf", data= Training, trControl=trcontrol)
+```
+
+The accuracy and rest of the characteristics are given in the following matrix:
+
+```{r}
+#charact <- predict(cvmodel,Validating)
+#print(confusionMatrix(charact, Validating$classe))
+```
+
+This method is slightly better according to the accuracy.
+
